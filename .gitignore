@@ -1,0 +1,25 @@
+# Python & Environment
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+
+# Machine Learning & AI Models
+*.onnx
+*.pt
+*.pth
+*.h5
+*.pkl
+
+# Telemetry Data & Logs
+/data/raw/
+/data/processed/
+*.csv
+*.log
+vcan_logs/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
