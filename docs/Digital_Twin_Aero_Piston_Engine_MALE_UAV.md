@@ -55,9 +55,7 @@
 * **The Problem**: Standard flight simulators output scalar RPM values at a low frequency (\~20–60 Hz). At a 2400 RPM cruise, the engine cycles at 40 Hz, yielding roughly one sample per revolution—rendering direct high-resolution angular interpolation physically impossible.  
 * **The Solution**: Implement a dual-loop framework. A low-frequency Control Loop tracks the vehicle’s macro-telemetry from X-Plane via UDP. These states instantaneously feed a high-frequency (10 kHz) software vibration generator in Python, bypassing simulator data rate limits.  
 * **Fault Modeling**: To ensure the high-frequency loop represents reality, the generator utilizes Gaussian Pulse Synthesis for fault injection to mimic the sharp physical impact of a misfire or valve slap at a specific crank angle (ϕ):&nbsp;  
-  $$  
-  V\_{\\text{fault}}(\\theta) \= A \\cdot \\exp\\left(-\\frac{(\\theta \- \\phi)^2}{2\\sigma^2}\\right)  
-  $$
+  $V_{\text{fault}}(\theta) = A \cdot \exp\left(-\frac{(\theta - \phi)^2}{2\sigma^2}\right)$
 
 **Action 2: Drift-Corrected Crank-Angle Reconstruction**
 
@@ -111,9 +109,7 @@
   * $\\Delta EGT \= EGT\_{\\text{Actual}} \- EGT\_{\\text{Predicted}}$  
   * $\\Delta CHT \= CHT\_{\\text{Actual}} \- CHT\_{\\text{Predicted}}$  
 * **The Transient Invalidation Gate:** Temporarily suppress thermal anomaly alarms for $N$ seconds while the physical engine blocks establish a new steady-state thermal equilibrium if:  
-  $$  
-  \\left| \\frac{d(\\text{RPM})}{dt} \\right| \> \\text{Threshold} \\quad \\text{OR} \\quad \\left| \\frac{d(\\text{MAP})}{dt} \\right| \> \\text{Threshold}  
-  $$&nbsp;  
+  $\left| \frac{d(\text{RPM})}{dt} \right| > \text{Threshold} \quad \text{OR} \quad \left| \frac{d(\text{MAP})}{dt} \right| > \text{Threshold}$&nbsp;  
 * Transmission: The Edge Node compresses the gated residuals ($\\Delta$) and Mechanical Ear scores into a lightweight Health State Vector, transmitting it to the GCS via TLS-encrypted MQTT to bypass RF bandwidth bottlenecks.
 
 **Branch D — Remaining Useful Life (RUL) Prognostics (GCS Node)**&nbsp;
