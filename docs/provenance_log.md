@@ -34,3 +34,14 @@
 * What was done: We utilized Docker containerization, Linux cgroups (artificial resource constraining), and ONNX Runtime profiling[cite: 1].
 * Why it was done: To mathematically prove that the Edge inference algorithms can run on a lightweight processor (like an NVIDIA Jetson Orin Nano or Raspberry Pi CM4) without actually possessing or purchasing the physical hardware[cite: 1].
 * What led to this: The need to deliver a defense-grade "Functional prototype/software demonstrator" on a standard laptop while proving its edge-viability to the SIH judges during a live pitch[cite: 1].
+
+## [2026-09-10] Phase 0 Completion, Proposal Finalization, & Defense Strategy Locked
+
+**Objective:** Finalize the project scope, confirm GitHub rendering compatibility, and document the architectural defense strategy for SIH PS 26054.
+
+**Key Decisions & Actions:**
+* **Phase 0 (Scope Locking) Completed:** Officially bounded the project around the physical constraints of MALE UAVs, mandating Edge AI to bypass Line-of-Sight (LOS) RF bandwidth bottlenecks and using Physics-Informed AI to handle thermal inertia[cite: 2].
+* **Dataset Strategy Solidified:** Confirmed a three-stream approach using X-Plane 12 SITL simulation (Stream A), synthetic multi-order fault injection (Stream B), and empirical domain logs for zero-shot validation (Stream C)[cite: 2].
+* **Resource Base Locked:** Integrated definitive engineering textbooks (Heywood for thermodynamics, Busch for aviation mechanics, Randall for vibration monitoring, Rao for mechanical vibrations, and Si et al. for RUL) alongside key multimedia resources (Savvy Aviation, Steve Brunton, FlyRotax)[cite: 2].
+* **Academic Defense Strategy Established:** Formulated a strict defense against "keyword salad" critiques by anchoring every algorithm to a physical necessity[cite: 2]. Specifically justified the Hybrid RAG system's necessity by its "Flight-State Awareness" and strict "Physics Rule Adherence" constraint to prevent hallucinated, physically destructive actions (e.g., ignoring shock-cooling hazards)[cite: 2].
+* **Documentation Formatting:** Standardized the Project Pipeline and Proposal into a single defense-grade document. Resolved GitHub MathJax rendering quirks by converting list-bound block equations to inline LaTeX formulas.
