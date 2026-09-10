@@ -55,7 +55,9 @@
 * **The Problem**: Standard flight simulators output scalar RPM values at a low frequency (\~20–60 Hz). At a 2400 RPM cruise, the engine cycles at 40 Hz, yielding roughly one sample per revolution—rendering direct high-resolution angular interpolation physically impossible.  
 * **The Solution**: Implement a dual-loop framework. A low-frequency Control Loop tracks the vehicle’s macro-telemetry from X-Plane via UDP. These states instantaneously feed a high-frequency (10 kHz) software vibration generator in Python, bypassing simulator data rate limits.  
 * **Fault Modeling**: To ensure the high-frequency loop represents reality, the generator utilizes Gaussian Pulse Synthesis for fault injection to mimic the sharp physical impact of a misfire or valve slap at a specific crank angle (ϕ):&nbsp;  
-  $$ V\_{\\text{fault}}(\\theta) \= A \\cdot e^{\\frac{(\\theta \- \\phi)^2}{2\\sigma^2}} $$
+  $$  
+  V\_{\\text{fault}}(\\theta) \= A \\cdot \\exp\\left(-\\frac{(\\theta \- \\phi)^2}{2\\sigma^2}\\right)  
+  $$
 
 **Action 2: Drift-Corrected Crank-Angle Reconstruction**
 
@@ -63,8 +65,6 @@
 * **The Solution**: Synchronize the integration to the absolute system timestamp rather than a local loop step variable. Calculate the instantaneous angle θ(t) dynamically and clamp it via a strict modulo-720° tracking step:&nbsp;  
   $$\\theta(t) \= \\left( \\int\_{0}^{t} 6 \\cdot RPM(\\tau) d\\tau \\right) \\text{ mod } 720^\\circ$$  
 * (Note: The constant 6 converts RPM directly to degrees per second. The modulo 720° zeroes out the phase counter every two complete crankshaft rotations to perfectly match a 4-stroke thermodynamic cycle)&nbsp;
-
-&nbsp;
 
 **Action 3: Resampling (Time → Angle)**
 
@@ -102,15 +102,18 @@
 * **Input**: Current State (RPM, Manifold Pressure, Density Altitude, True Airspeed).&nbsp;  
 * **Thermal Inertia Fix**: To account for the engine metal's thermal mass delay, the model utilizes time-series input arrays featuring Lagged Rolling-Average Features (e.g., `MAP_rolling_30s`, `RPM_rolling_45s`). This physically prevents the AI from mapping instantaneous throttle steps to impossible temperature jumps.&nbsp;  
 * **Task**: Predict expected "Healthy" operational values:  
-  * EGTPredicted\=$f$(RPM,MAP,OAT,Lagged\_Inputs)  
-  * CHTPredicted\=$f$(RPM,MAP,OAT,Lagged\_Inputs)
+  *  $EGT\_{\\text{Predicted}} \= f(\\text{RPM}, \\text{MAP}, \\text{OAT}, \\text{Lagged\\\_Inputs})$  
+  * $CHT\_{\\text{Predicted}} \= f(\\text{RPM}, \\text{MAP}, \\text{OAT}, \\text{Lagged\\\_Inputs})$
 
 **Branch C — Thermal Residual Generation (Δ) & Secure Transmission**&nbsp;
 
 * **Calculation**: Determine the thermodynamic delta vectors onboard the UAV :  
-  * $\\Delta EGT$ \=EGTActual−EGTPredicted  
-  * $\\Delta CHT$ \=CHTActual−CHTPredicted  
-* **The Transient Invalidation Gate:** Temporarily suppress thermal anomaly alarms for $N$ seconds while the physical engine blocks establish a new steady-state thermal equilibrium if: $$ \\left| \\frac{d(\\text{RPM})}{dt} \\right| \> \\text{Threshold} \\quad \\text{OR} \\quad \\left| \\frac{d(\\text{MAP})}{dt} \\right| \> \\text{Threshold} $$&nbsp;  
+  * $\\Delta EGT \= EGT\_{\\text{Actual}} \- EGT\_{\\text{Predicted}}$  
+  * $\\Delta CHT \= CHT\_{\\text{Actual}} \- CHT\_{\\text{Predicted}}$  
+* **The Transient Invalidation Gate:** Temporarily suppress thermal anomaly alarms for $N$ seconds while the physical engine blocks establish a new steady-state thermal equilibrium if:  
+  $$  
+  \\left| \\frac{d(\\text{RPM})}{dt} \\right| \> \\text{Threshold} \\quad \\text{OR} \\quad \\left| \\frac{d(\\text{MAP})}{dt} \\right| \> \\text{Threshold}  
+  $$&nbsp;  
 * Transmission: The Edge Node compresses the gated residuals ($\\Delta$) and Mechanical Ear scores into a lightweight Health State Vector, transmitting it to the GCS via TLS-encrypted MQTT to bypass RF bandwidth bottlenecks.
 
 **Branch D — Remaining Useful Life (RUL) Prognostics (GCS Node)**&nbsp;
@@ -213,7 +216,7 @@ We propose an indigenous, scalable Edge-to-Cloud Digital Twin framework. By depl
 ## **2.1 Context and Motivation**
 
 * **The Telemetry & Bandwidth Bottleneck:** High-fidelity vibration sensors generate megabytes of raw data per second. Streaming this raw data to ground operators is physically unfeasible over standard UAV communication links. Analytics must execute directly at the Edge, interfacing locally with the UAV's Engine Control Unit (ECU).&nbsp;  
-* **The "Aeroelastic & Transient" Challenge:** Standard Fast Fourier Transform (FFT) vibration analysis fails because engine RPM changes constantly across the flight envelope, causing mechanical frequencies to "smear" across the spectrum. Additionally, aggressive pitch/yaw maneuvers induce aerodynamic gyroscopic precession and P-factor bending moments that mimic the 1.0$\\times$ and 2.0$\\times$ order frequencies of a mechanical failure.&nbsp;  
+* **The "Aeroelastic & Transient" Challenge:** Standard Fast Fourier Transform (FFT) vibration analysis fails because engine RPM changes constantly across the flight envelope, causing mechanical frequencies to "smear" across the spectrum. Additionally, aggressive pitch/yaw maneuvers induce aerodynamic gyroscopic precession and P-factor bending moments that mimic the $1.0\\times$ and $2.0\\times$ order frequencies of a mechanical failure.&nbsp;  
 * **The Thermodynamic Gap:** Engine block temperatures (CHT) do not rise instantly with Exhaust Gas Temperatures (EGT) due to the massive thermal inertia of reciprocating machinery. Standard threshold-based systems trigger false alarms because they ignore this temporal phase-lag and fail to account for the drastic loss of convective cooling mass airflow at high Density Altitudes (DA).&nbsp;  
 * **The Prognostic Deficit:** Operators currently lack visibility into degradation trends. Without Remaining Useful Life (RUL) estimation, piston-engine failures often lead to unsafe recovery conditions, mission aborts, or asset loss.&nbsp;
 
@@ -239,7 +242,7 @@ To solve the RF bandwidth constraint and deliver real-time intelligence, the Dig
 ## **2.3 End-to-End Workflow**
 
 * **Data Acquisition:** High-altitude telemetry is generated via X-Plane 12 SITL simulation and piped into a Linux Virtual CAN bus (`vcan0`) via the `python-can` library to simulate real-world hardware ingestion.  
-* **Edge Processing:** The onboard script continuously evaluates the telemetry, calculating sub-harmonic mechanical orders (0.5$\\times$, 1.0$\\times$, 2.0$\\times$) and thermodynamic residuals.  
+* **Edge Processing:** The onboard script continuously evaluates the telemetry, calculating sub-harmonic mechanical orders ($0.5\\times$, $1.0\\times$, $2.0\\times$) and thermodynamic residuals.  
 * **Secure Transmission:** Anomalies and compressed health vectors are transmitted to the ground via TLS-encrypted MQTT (e.g., Eclipse Mosquitto), ensuring zero packet-drop vulnerabilities over constrained data links.  
 * **Predictive Analytics:** The GCS ingests the vector, updates the RUL trajectory, and triggers the Temporal SHAP / RAG pipeline if an anomaly crosses the stochastic degradation threshold.  
 * **Visualization & Replay:** The operator views the engine's health status on the Dashboard, capable of rewinding the telemetry stream to replay the exact environmental conditions (e.g., Hot-weather operation, High-DA) that led to the fault.
@@ -279,6 +282,8 @@ To design and implement a scalable, indigenous Digital Twin system capable of:&n
 | 6 | **Synthetic SITL Dataset** | A comprehensive labeled dataset generated via X-Plane 12 containing high-altitude flight telemetry and physically injected faults.&nbsp; |
 | 7 | **Secure Telemetry Pipeline** | Implementation of a TLS-encrypted MQTT broker to facilitate low-bandwidth, drop-resistant Edge-to-GCS communication.&nbsp; |
 | 8 | **System Architecture Document** | Detailed technical documentation, Edge/Cloud deployment roadmap, and RAGAS metric evaluation reports focusing on Physics Rule Adherence.&nbsp; |
+
+---
 
 # **5\. Novelty & Desired Innovation Areas Addressed**
 
@@ -349,12 +354,7 @@ These authoritative references and video lectures establish the physical laws un
 * **Savvy Aviation Webinars (Mike Busch):**  
   * **What it is for:** Outstanding video breakdowns of real flight-recorder data analyzing EGT/CHT phase lags, valve sticking, spark plug fouling, and deciphering engine telemetry.  
 * **Steve Brunton (University of Washington):**  
-  * **What it is for:** Premier engineering video lectures on Physics-Informed Neural Networks (PINNs), Dynamical Systems, Fast Fourier Transforms (FFT), dynamic mode decomposition, order tracking, and data-driven modeling.
-
-&nbsp;
-
-&nbsp;
-
+  * **What it is for:** Premier engineering video lectures on Physics-Informed Neural Networks (PINNs), Dynamical Systems, Fast Fourier Transforms (FFT), dynamic mode decomposition, order tracking, and data-driven modeling.  
 * **Rotax-Owner / FlyRotax Official Channel:**  
   * **What it is for:** Direct mechanical video teardowns of Rotax 912/914/916 series engines showing dry-sump oil paths, dual carburetors/injectors, turbo-wastegate controllers, and ECU wiring.
 
@@ -364,23 +364,16 @@ These papers substantiate the novel machine learning and signal processing metho
 
 * **Computed Order Tracking (COT):**  
   * *Reference:* Fyfe, K. R., & Munck, E. D. S. (1997). "Analysis of computed order tracking." Mechanical Systems and Signal Processing, 11(2), 187–205.  
-  * *What it is for:* Theoretical backing for integrating variable shaft speed $$ \\theta(t) \= \\left( \\int\_{0}^{t\_{\\text{sim}}} 6 \\cdot \\text{RPM}(t) \\, dt \\right) \\pmod{720^\\circ} $$ to resample time-series vibration data into stationary angular cycles.  
+  * *What it is for:* Theoretical backing for integrating variable shaft speed $\\theta(t) \= \\left( \\int\_{0}^{t\_{\\text{sim}}} 6 \\cdot \\text{RPM}(t) \\, dt \\right) \\pmod{720^\\circ}$ time-series vibration data into stationary angular cycles.  
 * **Time-Series Explainable AI (Temporal SHAP):**  
   * *Reference:* Lundberg, S. M., & Lee, S.-I. (2017). "A Unified Approach to Interpreting Model Predictions." NeurIPS.  
   * *What it is for:* Justifies mapping feature contributions across lagged time steps to explain thermal inertia delays (e.g., attributing a minute-45 overheat to a minute-43 throttle transient).  
 * **RAG Evaluation Architecture:**  
   * *Reference:* Es, S., et al. (2023). "Ragas: Automated Evaluation of Retrieval Augmented Generation." arXiv:2309.15217.  
-  * *What it is for:* Defining mathematical metrics for Context Recall, Context Precision, and enforcing custom Physics Rule Adherence constraints against hallucinated maintenance procedures.
-
-&nbsp;
-
-&nbsp;
-
+  * *What it is for:* Defining mathematical metrics for Context Recall, Context Precision, and enforcing custom Physics Rule Adherence constraints against hallucinated maintenance procedures.  
 * **Edge AI for UAV Prognostics:**  
   * *Reference:* ISO 11898-1/2 (Controller Area Network standard) and ONNX Runtime Technical Specifications.  
   * *What it is for:* Standardizing the communication interface between onboard Linux SocketCAN abstractions (vcan0) and lightweight edge-compiled ONNX models.
-
-&nbsp;
 
 ## **7.5 Software Tools, Virtualization & Hardware-Emulation Resources**
 
@@ -392,7 +385,6 @@ These engineering tools allow full prototype development, validation, and benchm
 * **Edge Containerization & Resource Constraints:**  
   * Docker & Linux cgroups: Limits local CPU cores (--cpus="2.0") and RAM (--memory="3g"), proving edge suitability on hardware classes equivalent to an NVIDIA Jetson Orin Nano or Raspberry Pi CM4.  
   * ONNX Runtime (C++ / Python): Compiles PyTorch/XGBoost models for zero-overhead inference on embedded ARM/x86 architectures.  
-    &nbsp;  
 * **Telemetry Link & Server Stack:**  
   * Eclipse Mosquitto (MQTT with TLS): Handles low-bandwidth, encrypted transmission of compressed Health State Vectors from Edge to GCS.  
   * FastAPI & React / Streamlit HMI: Serves diagnostic endpoints and renders the operator dashboard with 3D flight parameter replay.  
